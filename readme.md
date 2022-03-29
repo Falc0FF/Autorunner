@@ -1,0 +1,1 @@
+Helps to create shortcuts that launch video files on the desired monitor and add them to startup.
