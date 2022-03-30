@@ -3,3 +3,4 @@ venv-Autorunner/
 __pycache__/
 *.spec
 build/
+files/
