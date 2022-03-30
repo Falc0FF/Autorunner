@@ -187,7 +187,7 @@ class Application(tk.Tk):
     def find_mpc_installer(addr=None):
         """Find MPC installer."""
         if not addr:
-            current_dir = os.path.dirname(os.path.abspath(__file__))
+            current_dir = os.path.dirname(__file__)
             downloads_dir = os.getenv('userprofile') + r'\downloads'
             installer_name = 'MPC-HC.1.7.9.x86.exe'
             result = os.path.join(current_dir, installer_name)
@@ -210,7 +210,7 @@ class Application(tk.Tk):
                 file.write(response.content)
         except Exception as err:
             print(err)
-        dir = os.path.dirname(os.path.abspath(__file__))
+        dir = os.path.dirname(__file__)
         return os.path.join(dir, url.split('/')[-1])
 
     def app_installmpc(self):
@@ -246,7 +246,7 @@ del silentmpc.bat 2>nul''')
 
     def create_mpc_cfg(self):
         """Create MPC CFG."""
-        current_dir = os.path.dirname(os.path.abspath(__file__))
+        current_dir = os.path.dirname(__file__)
         cfgfile = os.path.join(current_dir, 'mpc-hc.ini')
         with open(cfgfile, 'w') as mpccfg:
             mpccfg.write(mpcini)
@@ -334,7 +334,7 @@ del {file[:-12]}file_move.bat 2>nul''')
     def app_runexit(self):
         """Run and Exit."""
         folder = os.getenv('appdata') + \
-            '\\Microsoft\\Windows\\Start Menu\\Programs\\Startup'
+            r'\Microsoft\Windows\Start Menu\Programs\Startup'
         for file in os.listdir(folder):
             if len(file) == 12 and file[:-4].isdigit():
                 os.startfile(os.path.join(folder, file))
@@ -350,10 +350,9 @@ def main():
 
 def test():
     """Test function."""
-    # print(sys.argv)
+    print(sys.argv)
     # import locale
     # print(locale.getpreferredencoding())
-    pass
 
 
 if __name__ == '__main__':
