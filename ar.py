@@ -186,19 +186,20 @@ class Application(tk.Tk):
 
     def find_mpc_installer(addr=None):
         """Find MPC installer."""
-        if not addr:
+        if addr:
+            if os.path.isfile(addr):
+                return addr
+        elif not addr:
             current_dir = os.path.dirname(__file__)
             downloads_dir = os.getenv('userprofile') + r'\downloads'
             installer_name = 'MPC-HC.1.7.9.x86.exe'
             result = os.path.join(current_dir, installer_name)
-        elif addr:
-            result = addr
-        if os.path.isfile(result):
-            return result
-        elif not addr:
-            result = os.path.join(downloads_dir, installer_name)
             if os.path.isfile(result):
                 return result
+            else:
+                result = os.path.join(downloads_dir, installer_name)
+                if os.path.isfile(result):
+                    return result
 
     def download_mpc_installer():
         """Download MPC installer."""
@@ -262,7 +263,7 @@ chcp 1251>nul
 move "{cfgfile}" "{self.mpc_file[:-10]}{cfgfile[-10:]}"
 del {cfgfile[:-10]}cfg_copy.bat 2>nul''')
         os.startfile(f'{cfgfile[:-10]}cfg_copy.bat', "runas")
-        time.sleep(3)
+        time.sleep(4)
         if not os.path.isfile(f'{self.mpc_file[:-10]}{cfgfile[-10:]}'):
             asktitle = 'CFG file not found'
             askmessage = 'Не удалось переместить ini файл из текущей \
