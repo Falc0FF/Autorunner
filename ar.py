@@ -9,21 +9,12 @@ import os
 import os.path
 import winshell
 from win32com.client import Dispatch
-from getpass import getpass
 from idlelib.tooltip import Hovertip
-from dotenv import load_dotenv
 from mpc_hc_ini import mpcini
 import requests
 import tkinter as tk
 from tkinter import ttk
 from tkinter.filedialog import askopenfilename
-
-
-def get_from_env(key):
-    """Get a secret key from a file."""
-    dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
-    load_dotenv(dotenv_path)
-    return os.environ.get(key)
 
 
 class Application(tk.Tk):
@@ -349,18 +340,5 @@ def main():
     root.mainloop()
 
 
-def test():
-    """Test function."""
-    print(sys.argv)
-    # import locale
-    # print(locale.getpreferredencoding())
-
-
 if __name__ == '__main__':
-    if '-run' in sys.argv:
-        if getpass('input: ') == get_from_env("PASSW"):
-            main()
-    elif '-test' in sys.argv:
-        test()
-    else:
-        print('Попытка запуска программы неуспешна')
+    main()
