@@ -211,7 +211,10 @@ class Application(tk.Tk):
         """Download MPC installer."""
         url = 'https://sourceforge.net/projects/mpc-hc/files/MPC%20Home' + \
             'Cinema%20-%20Win32/MPC-HC_v1.7.9_x86/MPC-HC.1.7.9.x86.exe'
+        print(f'url={url}')
+        print(f'workdir={self.work_dir}')
         file = os.path.join(self.work_dir, url.split('/')[-1])
+        print(f'file={file}')
         try:
             response = requests.get(url=url)
             with open(file, 'wb') as f:
