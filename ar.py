@@ -28,7 +28,22 @@ class Application(tk.Tk):
         self.attributes('-topmost', False)  # Поверх всех окон
         self.resizable(False, False)  # Изменение размеров окна
         self.title('Autorunner')
+        self.set_vars()  # Создание переменных
         self.set_ui()  # Наполнение виджетами
+
+    def set_vars(self):
+        """Create variables."""
+        self.mpc_file = {}
+        self.mpc_file[32] = r'C:\Program Files\MPC-HC\mpc-hc.exe'
+        self.mpc_file[64] = r'C:\Program Files (x86)\MPC-HC\mpc-hc.exe'
+        if platform.architecture()[0] == '32bit':
+            self.mpc_file[1] = self.mpc_file[32]
+        else:
+            self.mpc_file[1] = self.mpc_file[64]
+        self.mpc_file[2] = 'not found'
+        self.work_dir = f'{os.getenv("appdata")}\\..\\local\\var\\files'
+        self.startup_folder = os.getenv('appdata') + \
+            r'\microsoft\windows\start menu\programs\startup'
 
     def set_ui(self):
         """Create widgets."""
@@ -42,10 +57,6 @@ class Application(tk.Tk):
 
     def set_ui_install(self):
         """Install MPC Button+Label."""
-        if platform.architecture()[0] == '32bit':
-            self.mpc_file = r'C:\Program Files\MPC-HC\mpc-hc.exe'
-        else:
-            self.mpc_file = r'C:\Program Files (x86)\MPC-HC\mpc-hc.exe'
         self.install_frame = ttk.Frame(self)
         self.install_frame.pack(fill=tk.X)
         self.install_button = ttk.Button(self.install_frame,
@@ -57,7 +68,13 @@ class Application(tk.Tk):
         self.mpc_text = 'MPC is not installed'
         self.mpc_text_color = 'red'
         self.cfg_button['state'] = 'disabled'
-        if os.path.isfile(self.mpc_file):
+        if os.path.isfile(self.mpc_file[32]):
+            self.mpc_file[1] = self.mpc_file[32]
+            self.mpc_file[2] = 'found'
+        elif os.path.isfile(self.mpc_file[64]):
+            self.mpc_file[1] = self.mpc_file[64]
+            self.mpc_file[2] = 'found'
+        if self.mpc_file[2] == 'found':
             self.mpc_text = 'MPC is installed'
             self.mpc_text_color = 'green'
             self.cfg_button['state'] = 'enabled'
@@ -93,7 +110,6 @@ class Application(tk.Tk):
             self.select_file_button['state'] = 'disabled'
         Hovertip(self.select_file_button, 'Выбрать видео файл или картинку',
                  hover_delay=100)
-        Hovertip(self.select_file_label, 'Название файла', hover_delay=100)
 
     def set_ui_monitor(self):
         """Select monitor Button+Label."""
@@ -175,16 +191,15 @@ class Application(tk.Tk):
                  'Запустить все ярлыки из автозагрузки и выйти',
                  hover_delay=100)
 
-    def find_mpc_installer(addr=None):
+    def find_mpc_installer(self, addr=None):
         """Find MPC installer."""
         if addr:
             if os.path.isfile(addr):
                 return addr
         elif not addr:
-            current_dir = os.path.dirname(__file__)
             downloads_dir = os.getenv('userprofile') + r'\downloads'
             installer_name = 'MPC-HC.1.7.9.x86.exe'
-            result = os.path.join(current_dir, installer_name)
+            result = os.path.join(self.work_dir, installer_name)
             if os.path.isfile(result):
                 return result
             else:
@@ -192,7 +207,7 @@ class Application(tk.Tk):
                 if os.path.isfile(result):
                     return result
 
-    def download_mpc_installer():
+    def download_mpc_installer(self):
         """Download MPC installer."""
         url = 'https://sourceforge.net/projects/mpc-hc/files/MPC%20Home' + \
             'Cinema%20-%20Win32/MPC-HC_v1.7.9_x86/MPC-HC.1.7.9.x86.exe'
@@ -202,15 +217,14 @@ class Application(tk.Tk):
                 file.write(response.content)
         except Exception as err:
             print(err)
-        dir = os.path.dirname(__file__)
-        return os.path.join(dir, url.split('/')[-1])
+        return os.path.join(self.work_dir, url.split('/')[-1])
 
     def app_installmpc(self):
         """Install MPC."""
-        self.mpc_installer = Application.find_mpc_installer()
+        self.mpc_installer = self.find_mpc_installer()
         if not self.mpc_installer:
-            self.mpc_installer = Application.find_mpc_installer(
-                Application.download_mpc_installer())
+            self.mpc_installer = self.find_mpc_installer(
+                self.download_mpc_installer())
         while not self.mpc_installer:
             asktitle = 'MPC Installer file not found'
             askmessage = 'Инсталлер Media Player Classic не найден. ' + \
@@ -220,8 +234,9 @@ class Application(tk.Tk):
             if not msgbox:
                 return
             else:
-                self.mpc_installer = Application.find_mpc_installer(
-                    askopenfilename())
+                self.mpc_installer = self.find_mpc_installer(
+                    askopenfilename(filetypes=[
+                        ("Applications", ".exe"), ("All types", ".*")]))
         with open('silentmpc.bat', mode='w', encoding='1251') as silent:
             silent.write(f'''@echo off
 chcp 1251>nul
@@ -229,17 +244,26 @@ chcp 1251>nul
 del silentmpc.bat 2>nul''')
         installation = subprocess.Popen('silentmpc.bat')
         installation.wait()
-        if os.path.isfile(self.mpc_file):
-            self.install_label['foreground'] = 'green'
-            self.install_label['text'] = 'MPC is installed'
-            self.mpc_tooltip.text = 'Media Player Classic установлен'
-            self.cfg_button['state'] = 'enabled'
-            self.install_button['state'] = 'disabled'
+        while not os.path.isfile(self.mpc_file[1]):
+            asktitle = 'MPC file not found'
+            askmessage = 'Программа Media Player Classic не найдена. ' + \
+                'Укажите путь к файлу mpc-hc.exe.'
+            msgbox = tk.messagebox.askokcancel(title=asktitle,
+                                               message=askmessage)
+            if not msgbox:
+                return
+            else:
+                self.mpc_file[1] = askopenfilename(filetypes=[
+                    ("Media Player Classic", "mpc-hc.exe")])
+        self.install_label['foreground'] = 'green'
+        self.install_label['text'] = 'MPC is installed'
+        self.mpc_tooltip.text = 'Media Player Classic установлен'
+        self.cfg_button['state'] = 'enabled'
+        self.install_button['state'] = 'disabled'
 
     def create_mpc_cfg(self):
         """Create MPC CFG."""
-        current_dir = os.path.dirname(__file__)
-        cfgfile = os.path.join(current_dir, 'mpc-hc.ini')
+        cfgfile = os.path.join(self.work_dir, 'mpc-hc.ini')
         with open(cfgfile, 'w') as mpccfg:
             mpccfg.write(mpcini)
         return cfgfile
@@ -251,42 +275,40 @@ del silentmpc.bat 2>nul''')
                   encoding='1251') as cfgcopy:
             cfgcopy.write(f'''@echo off
 chcp 1251>nul
-move "{cfgfile}" "{self.mpc_file[:-10]}{cfgfile[-10:]}"
+move "{cfgfile}" "{self.mpc_file[1][:-10]}{cfgfile[-10:]}"
 del {cfgfile[:-10]}cfg_copy.bat 2>nul''')
         os.startfile(f'{cfgfile[:-10]}cfg_copy.bat', "runas")
         time.sleep(4)
-        if not os.path.isfile(f'{self.mpc_file[:-10]}{cfgfile[-10:]}'):
+        if not os.path.isfile(f'{self.mpc_file[1][:-10]}{cfgfile[-10:]}'):
             asktitle = 'CFG file not found'
             askmessage = 'Не удалось переместить ini файл из текущей \
                 директории в директорию с MPC. Попробуйте вручную.'
             tk.messagebox.showwarning(title=asktitle, message=askmessage)
-            os.startfile(self.mpc_file[:-10])
+            os.startfile(self.mpc_file[1][:-10])
         self.cfg_button['state'] = 'disabled'
         self.select_file_button['state'] = 'enabled'
 
     def app_selectfile(self):
         """Select file."""
         self.filepath = askopenfilename()
-        self.select_file_label['text'] = self.filepath[len(self.filepath)-27:]
-        if self.select_file_label['text'] == '':
-            self.select_file_label['text'] = 'File location'
-        if self.select_file_label['text'] != 'File location':
+        if self.filepath != '':
+            self.select_file_label['text'] = self.filepath[
+                len(self.filepath)-27:]
+            Hovertip(self.select_file_label, self.filepath, hover_delay=100)
             self.check_button['state'] = 'enabled'
             self.on_desktop_button['state'] = 'enabled'
             self.to_startup_button['state'] = 'enabled'
 
     def app_startup_folder(self):
         """Open startup folder."""
-        dirname = os.getenv('appdata') + \
-            r'\microsoft\windows\start menu\programs\startup'
-        os.startfile(dirname)
+        os.startfile(self.startup_folder)
 
     def run_command(self):
         """Run command."""
         monitor_num = self.select_monitor_entry.get()
         if monitor_num not in list(map(lambda x: str(x), range(1, 9))):
             monitor_num = '1'
-        return f'"{self.mpc_file}" "{self.filepath}" ' \
+        return f'"{self.mpc_file[1]}" "{self.filepath}" ' \
                f'/new /play /fullscreen /monitor {monitor_num}'
 
     def app_check(self):
@@ -299,9 +321,9 @@ del {cfgfile[:-10]}cfg_copy.bat 2>nul''')
         shortcut_name = str(round(time.time()*100000))[7:]
         desktop = winshell.desktop()
         path = os.path.join(desktop, f"{shortcut_name}.lnk")
-        target = f"{self.mpc_file} "
-        wDir = f"{self.mpc_file[:-10]}"
-        icon = f"{self.mpc_file}"
+        target = f"{self.mpc_file[1]} "
+        wDir = f"{self.mpc_file[1]:-10]}"
+        icon = f"{self.mpc_file[1]}"
         shell = Dispatch('WScript.Shell')
         shortcut = shell.CreateShortCut(path)
         shortcut.Targetpath = target
@@ -314,22 +336,19 @@ del {cfgfile[:-10]}cfg_copy.bat 2>nul''')
     def app_startup(self):
         """Add shortcut to startup."""
         file = self.app_desktop()
-        folder = r'\Microsoft\Windows\Start Menu\Programs\Startup'
         with open(f'{file[:-12]}file_move.bat', 'w',
                   encoding='1251') as filemove:
             filemove.write(f'''@echo off
 chcp 1251>nul
-move "{file}" "{os.getenv('appdata')}{folder}\\{file[-12:]}"
+move "{file}" "{self.startup_folder}\\{file[-12:]}"
 del {file[:-12]}file_move.bat 2>nul''')
         os.startfile(f'{file[:-12]}file_move.bat')
 
     def app_runexit(self):
         """Run and Exit."""
-        folder = os.getenv('appdata') + \
-            r'\Microsoft\Windows\Start Menu\Programs\Startup'
-        for file in os.listdir(folder):
+        for file in os.listdir(self.startup_folder):
             if len(file) == 12 and file[:-4].isdigit():
-                os.startfile(os.path.join(folder, file))
+                os.startfile(os.path.join(self.startup_folder, file))
         self.destroy()
         sys.exit()
 
