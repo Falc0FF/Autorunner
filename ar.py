@@ -134,12 +134,12 @@ class Application(tk.Tk):
                                        command=self.app_check)
         self.check_button.pack(side=tk.LEFT)
         self.check_button['state'] = 'disabled'
-        self.startup_folder = ttk.Button(self.result_frame,
+        self.startup_folder_button = ttk.Button(self.result_frame,
                                          text=' Open startup folder  ',
                                          command=self.app_startup_folder)
-        self.startup_folder.pack(side=tk.RIGHT)
+        self.startup_folder_button.pack(side=tk.RIGHT)
         Hovertip(self.check_button, 'Вывести на экран', hover_delay=100)
-        Hovertip(self.startup_folder, 'Открыть папку автозагрузки',
+        Hovertip(self.startup_folder_button, 'Открыть папку автозагрузки',
                  hover_delay=100)
 
     def app_clear(self):
