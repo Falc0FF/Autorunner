@@ -323,7 +323,7 @@ del {cfgfile[:-10]}cfg_copy.bat 2>nul''')
         desktop = winshell.desktop()
         path = os.path.join(desktop, f"{shortcut_name}.lnk")
         target = f"{self.mpc_file[1]} "
-        wDir = f"{self.mpc_file[1]:-10]}"
+        wDir = f"{self.mpc_file[1][:-10]}"
         icon = f"{self.mpc_file[1]}"
         shell = Dispatch('WScript.Shell')
         shortcut = shell.CreateShortCut(path)
