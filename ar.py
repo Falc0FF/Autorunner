@@ -211,13 +211,14 @@ class Application(tk.Tk):
         """Download MPC installer."""
         url = 'https://sourceforge.net/projects/mpc-hc/files/MPC%20Home' + \
             'Cinema%20-%20Win32/MPC-HC_v1.7.9_x86/MPC-HC.1.7.9.x86.exe'
+        file = os.path.join(self.work_dir, url.split('/')[-1])
         try:
             response = requests.get(url=url)
-            with open(url.split('/')[-1], 'wb') as file:
-                file.write(response.content)
+            with open(file, 'wb') as f:
+                f.write(response.content)
         except Exception as err:
             print(err)
-        return os.path.join(self.work_dir, url.split('/')[-1])
+        return file
 
     def app_installmpc(self):
         """Install MPC."""
