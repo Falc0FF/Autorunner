@@ -1,5 +1,4 @@
 """Autorunner."""
-# ver. 1.1
 
 import subprocess
 import platform
@@ -15,6 +14,67 @@ import requests
 import tkinter as tk
 from tkinter import ttk
 from tkinter.filedialog import askopenfilename
+
+FILE_VERSION = '0.1.1'
+
+
+def error_log(error_message):
+    """Errors log."""
+    work_dir = f'{os.getenv("appdata")}\\..\\local\\var\\files'
+    with open(f'{work_dir}\\error.log', 'a') as err_file:
+        err_file.write(time.ctime(time.time()) + 'ERROR MESSAGE: "' +
+                       error_message + '"\n')
+
+
+def check_update():
+    """Check update."""
+    url = 'https://github.com/Falc0FF/Autorunner/blob/master/version.txt'
+    file = os.path.join(os.path.dirname(__file__), url.split('/')[-1])
+    try:
+        response = requests.get(url=url)
+        with open(file, 'wb') as f:
+            f.write(response.content)
+    except Exception as err:
+        error_log(err)
+        return None
+    with open(file, 'r') as f:
+        ver = f.readline()
+    try:
+        if ver != FILE_VERSION:
+            return ver
+    except Exception as err:
+        error_log(err)
+        return None
+    return False
+
+
+def get_update(ver=None):
+    """Get update."""
+    if not ver:
+        error_log(f'version={ver}')
+        return
+    url = 'https://github.com/Falc0FF/Autorunner/releases/download/' \
+          f'v.{ver}/ar.exe'
+    work_dir = f'{os.getenv("appdata")}\\..\\local\\var\\files'
+    newfile = os.path.join(work_dir, url.split('/')[-1])
+    file = newfile.replace('\\files', '')
+    try:
+        response = requests.get(url=url)
+        with open(newfile, 'wb') as f:
+            f.write(response.content)
+    except Exception as err:
+        error_log(err)
+        return None
+    with open('update.bat', mode='w', encoding='1251') as upd:
+        upd.write(f'''@echo off
+chcp 1251>nul
+echo Update complete
+timeout /t 3 /nobreak>nul
+move /Y "{newfile}" "{file}"
+start "{file}"
+del update.bat 2>nul''')
+    os.startfile('update.bat', "runas")
+    sys.exit()
 
 
 class Application(tk.Tk):
@@ -34,13 +94,21 @@ class Application(tk.Tk):
     def set_vars(self):
         """Create variables."""
         self.mpc_file = {}
-        self.mpc_file[32] = r'C:\Program Files\MPC-HC\mpc-hc.exe'
-        self.mpc_file[64] = r'C:\Program Files (x86)\MPC-HC\mpc-hc.exe'
-        if platform.architecture()[0] == '32bit':
-            self.mpc_file[1] = self.mpc_file[32]
-        else:
-            self.mpc_file[1] = self.mpc_file[64]
         self.mpc_file[2] = 'not found'
+        if platform.architecture()[0] == '32bit':
+            self.mpc_file[32] = r'C:\Program Files\MPC-HC\mpc-hc.exe'
+            if os.path.isfile(self.mpc_file[32]):
+                self.mpc_file[1] = self.mpc_file[32]
+                self.mpc_file[2] = 'found'
+        else:
+            self.mpc_file[64] = r'C:\Program Files\MPC-HC\mpc-hc64.exe'
+            self.mpc_file[3264] = r'C:\Program Files (x86)\MPC-HC\mpc-hc.exe'
+            if os.path.isfile(self.mpc_file[64]):
+                self.mpc_file[1] = self.mpc_file[64]
+                self.mpc_file[2] = 'found'
+            elif os.path.isfile(self.mpc_file[3264]):
+                self.mpc_file[1] = self.mpc_file[3264]
+                self.mpc_file[2] = 'found'
         self.work_dir = f'{os.getenv("appdata")}\\..\\local\\var\\files'
         self.startup_folder = os.getenv('appdata') + \
             r'\microsoft\windows\start menu\programs\startup'
@@ -68,12 +136,6 @@ class Application(tk.Tk):
         self.mpc_text = 'MPC is not installed'
         self.mpc_text_color = 'red'
         self.cfg_button['state'] = 'disabled'
-        if os.path.isfile(self.mpc_file[32]):
-            self.mpc_file[1] = self.mpc_file[32]
-            self.mpc_file[2] = 'found'
-        elif os.path.isfile(self.mpc_file[64]):
-            self.mpc_file[1] = self.mpc_file[64]
-            self.mpc_file[2] = 'found'
         if self.mpc_file[2] == 'found':
             self.mpc_text = 'MPC is installed'
             self.mpc_text_color = 'green'
@@ -117,7 +179,7 @@ class Application(tk.Tk):
         self.select_monitor_frame.pack(fill=tk.X)
         self.select_monitor_label = ttk.Label(
             self.select_monitor_frame,
-            text='Select monitor number (1-8):')
+            text='Select monitor number (max 8):')
         self.select_monitor_label.pack(side=tk.LEFT)
         self.select_monitor_entry = ttk.Entry(self.select_monitor_frame,)
         self.select_monitor_entry.pack(side=tk.LEFT)
@@ -134,9 +196,10 @@ class Application(tk.Tk):
                                        command=self.app_check)
         self.check_button.pack(side=tk.LEFT)
         self.check_button['state'] = 'disabled'
-        self.startup_folder_button = ttk.Button(self.result_frame,
-                                         text=' Open startup folder  ',
-                                         command=self.app_startup_folder)
+        self.startup_folder_button = ttk.Button(
+            self.result_frame,
+            text=' Open startup folder  ',
+            command=self.app_startup_folder)
         self.startup_folder_button.pack(side=tk.RIGHT)
         Hovertip(self.check_button, 'Вывести на экран', hover_delay=100)
         Hovertip(self.startup_folder_button, 'Открыть папку автозагрузки',
@@ -222,22 +285,28 @@ class Application(tk.Tk):
 
     def app_installmpc(self):
         """Install MPC."""
+        self.install_label['text'] = 'Waiting...'
+        self.install_label.update_idletasks()
         self.mpc_installer = self.find_mpc_installer()
         if not self.mpc_installer:
             self.mpc_installer = self.find_mpc_installer(
                 self.download_mpc_installer())
         while not self.mpc_installer:
+            self.install_label['text'] = 'Press button on window'
             asktitle = 'MPC Installer file not found'
             askmessage = 'Инсталлер Media Player Classic не найден. ' + \
                 'Укажите путь к этому файлу.'
             msgbox = tk.messagebox.askokcancel(title=asktitle,
                                                message=askmessage)
             if not msgbox:
+                self.install_label['text'] = 'MPC is not installed'
                 return
             else:
+                self.install_label['text'] = 'Select MPC installer'
                 self.mpc_installer = self.find_mpc_installer(
                     askopenfilename(filetypes=[
                         ("Applications", ".exe"), ("All types", ".*")]))
+        self.install_label['text'] = 'Waiting...'
         with open('silentmpc.bat', mode='w', encoding='1251') as silent:
             silent.write(f'''@echo off
 chcp 1251>nul
@@ -245,17 +314,24 @@ chcp 1251>nul
 del silentmpc.bat 2>nul''')
         installation = subprocess.Popen('silentmpc.bat')
         installation.wait()
+        if platform.architecture()[0] == '32bit':
+            self.mpc_file[1] = self.mpc_file[32]
+        else:
+            self.mpc_file[1] = self.mpc_file[3264]
         while not os.path.isfile(self.mpc_file[1]):
+            self.install_label['text'] = 'Press button on window'
             asktitle = 'MPC file not found'
             askmessage = 'Программа Media Player Classic не найдена. ' + \
                 'Укажите путь к файлу mpc-hc.exe.'
             msgbox = tk.messagebox.askokcancel(title=asktitle,
                                                message=askmessage)
             if not msgbox:
+                self.install_label['text'] = 'MPC is not installed'
                 return
             else:
+                self.install_label['text'] = 'Select mpc-hc.exe'
                 self.mpc_file[1] = askopenfilename(filetypes=[
-                    ("Media Player Classic", "mpc-hc.exe")])
+                    ("Media Player Classic", "mpc-hc.exe;mpc-hc64.exe")])
         self.install_label['foreground'] = 'green'
         self.install_label['text'] = 'MPC is installed'
         self.mpc_tooltip.text = 'Media Player Classic установлен'
@@ -341,7 +417,7 @@ del {cfgfile[:-10]}cfg_copy.bat 2>nul''')
                   encoding='1251') as filemove:
             filemove.write(f'''@echo off
 chcp 1251>nul
-move "{file}" "{self.startup_folder}\\{file[-12:]}"
+move "{file}" "{self.startup_folder}\\{file[-12:]}">nul 2>nul
 del {file[:-12]}file_move.bat 2>nul''')
         os.startfile(f'{file[:-12]}file_move.bat')
 
@@ -361,4 +437,8 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    if '-ver' in sys.argv:
+        print(FILE_VERSION)
+    elif len(sys.argv) < 2:
+        get_update(check_update())
+        main()
