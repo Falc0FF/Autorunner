@@ -438,7 +438,7 @@ def main():
 
 if __name__ == '__main__':
     if '-ver' in sys.argv:
-        print(FILE_VERSION)
+        sys.exit(FILE_VERSION)
     elif len(sys.argv) < 2:
         get_update(check_update())
         main()
