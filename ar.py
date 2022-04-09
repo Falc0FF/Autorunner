@@ -2,6 +2,7 @@
 
 import subprocess
 import platform
+import ctypes as ct
 import time
 import sys
 import os
@@ -13,9 +14,9 @@ from mpc_hc_ini import mpcini
 import requests
 import tkinter as tk
 from tkinter import ttk
-from tkinter.filedialog import askopenfilename
+from tkinter.filedialog import askopenfilename, askopenfilenames
 
-FILE_VERSION = '0.1.1'
+FILE_VERSION = '0.1.2'
 
 
 def error_log(error_message):
@@ -38,23 +39,23 @@ def check_update():
         error_log(err)
         return None
     with open(file, 'r') as f:
-        ver = f.readline()
+        new_version = f.readline()
     try:
-        if ver != FILE_VERSION:
-            return ver
+        if new_version != FILE_VERSION:
+            return new_version
     except Exception as err:
         error_log(err)
         return None
     return False
 
 
-def get_update(ver=None):
+def get_update(version=None):
     """Get update."""
-    if not ver:
-        error_log(f'version={ver}')
+    if not version:
+        error_log(f'new_version={version} cur_version={FILE_VERSION}')
         return
     url = 'https://github.com/Falc0FF/Autorunner/releases/download/' \
-          f'v.{ver}/ar.exe'
+          f'v.{version}/ar.exe'
     work_dir = f'{os.getenv("appdata")}\\..\\local\\var\\files'
     newfile = os.path.join(work_dir, url.split('/')[-1])
     file = newfile.replace('\\files', '')
@@ -184,7 +185,9 @@ class Application(tk.Tk):
         self.select_monitor_entry = ttk.Entry(self.select_monitor_frame,)
         self.select_monitor_entry.pack(side=tk.LEFT)
         self.select_monitor_entry.insert(0, '1')
-        Hovertip(self.select_monitor_label, 'Введите номер монитора',
+        Hovertip(self.select_monitor_label,
+                 'Введите номер монитора\nили список мониторов через запятую, \
+                     пробел,\nзапятую и пробел, тире',
                  hover_delay=100)
 
     def set_ui_result(self):
@@ -367,11 +370,12 @@ del {cfgfile[:-10]}cfg_copy.bat 2>nul''')
 
     def app_selectfile(self):
         """Select file."""
-        self.filepath = askopenfilename()
-        if self.filepath != '':
-            self.select_file_label['text'] = self.filepath[
-                len(self.filepath)-27:]
-            Hovertip(self.select_file_label, self.filepath, hover_delay=100)
+        self.filespath = askopenfilenames()
+        if self.filespath[0] != '':
+            self.select_file_label['text'] = self.filespath[0][
+                len(self.filespath[0])-27:]
+            Hovertip(self.select_file_label, '\n'.join(self.filespath),
+                     hover_delay=100)
             self.check_button['state'] = 'enabled'
             self.on_desktop_button['state'] = 'enabled'
             self.to_startup_button['state'] = 'enabled'
@@ -385,7 +389,7 @@ del {cfgfile[:-10]}cfg_copy.bat 2>nul''')
         monitor_num = self.select_monitor_entry.get()
         if monitor_num not in list(map(lambda x: str(x), range(1, 9))):
             monitor_num = '1'
-        return f'"{self.mpc_file[1]}" "{self.filepath}" ' \
+        return f'"{self.mpc_file[1]}" "{self.filespath[0]}" ' \
                f'/new /play /fullscreen /monitor {monitor_num}'
 
     def app_check(self):
@@ -404,7 +408,7 @@ del {cfgfile[:-10]}cfg_copy.bat 2>nul''')
         shell = Dispatch('WScript.Shell')
         shortcut = shell.CreateShortCut(path)
         shortcut.Targetpath = target
-        shortcut.Arguments = self.run_command()[-36-len(self.filepath):]
+        shortcut.Arguments = self.run_command()[-36-len(self.filespath[0]):]
         shortcut.WorkingDirectory = wDir
         shortcut.IconLocation = icon
         shortcut.save()
@@ -437,8 +441,11 @@ def main():
 
 
 if __name__ == '__main__':
-    if '-ver' in sys.argv:
-        print(FILE_VERSION)
-    elif len(sys.argv) < 2:
+    ct.windll.user32.ShowWindow(ct.windll.kernel32.GetConsoleWindow(), 6)
+    if len(sys.argv) == 2 and '-ver' in sys.argv:
+        with open('file_version.txt', 'w') as fver:
+            fver.write(FILE_VERSION)
+    elif len(sys.argv) == 2 and '-upd' in sys.argv:
         get_update(check_update())
+    elif len(sys.argv) < 2:
         main()
