@@ -119,12 +119,12 @@ class Application(tk.Tk):
         self.startup_folder = os.getenv(
             'appdata') + r'\microsoft\windows\start menu\programs\startup'
         self.image_monitor = ImageTk.PhotoImage(
-            Image.open(f'{os.path.dirname(__file__)}\\files\\monitor.ico'))
-        image_pin = Image.open(f'{os.path.dirname(__file__)}\\files\\pin.png')
+            Image.open(f'{os.path.dirname(__file__)}\\imgs\\monitor.ico'))
+        image_pin = Image.open(f'{os.path.dirname(__file__)}\\imgs\\pin.png')
         self.image_pin = ImageTk.PhotoImage(
             image_pin.resize((20, 20), Image.Resampling.LANCZOS))
         image_unpin = Image.open(
-            f'{os.path.dirname(__file__)}\\files\\unpin.png')
+            f'{os.path.dirname(__file__)}\\imgs\\unpin.png')
         self.image_unpin = ImageTk.PhotoImage(
             image_unpin.resize((20, 20), Image.Resampling.LANCZOS))
         self.monitor_count = len(win32api.EnumDisplayMonitors())
@@ -522,6 +522,7 @@ def main():
 if __name__ == '__main__':
     ct.windll.user32.ShowWindow(ct.windll.kernel32.GetConsoleWindow(), 6)
     if len(sys.argv) == 2 and '-ver' in sys.argv:
+        print(FILE_VERSION)
         with open('file_version.txt', 'w') as fver:
             fver.write(FILE_VERSION)
     elif len(sys.argv) == 2 and '-upd' in sys.argv:
