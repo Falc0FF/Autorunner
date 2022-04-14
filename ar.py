@@ -1,24 +1,23 @@
 """Autorunner."""
 
-import subprocess
-import platform
-import ctypes as ct
+import subprocess  # Дождаться окончания процесса
+import platform  # Определить разрядность ОС
+import ctypes as ct  # Свернуть консоль
 import time
 import sys
 import os
 import os.path
-from typing_extensions import IntVar
-import win32api
-import winshell
+import win32api  # Количество мониторов
+import winshell  # Создание ярлыка
 from win32com.client import Dispatch
-from idlelib.tooltip import Hovertip
-from mpc_hc_ini import mpcini
-from PIL import Image, ImageTk
-import requests
+from idlelib.tooltip import Hovertip  # Всплывающие подсказки
+from mpc_hc_ini import mpcini  # Конфиг MPC
+from PIL import Image, ImageTk  # Иконки на кнопках
+import requests  # Скачать обновления, инсталер
 import tkinter as tk
 from tkinter.filedialog import askopenfilename, askopenfilenames
 
-FILE_VERSION = '0.1.2'
+FILE_VERSION = '2.0.0'
 
 
 def error_log(error_message):
@@ -68,9 +67,9 @@ def get_update(version=None):
     except Exception as err:
         error_log(err)
         return None
-    with open('update.bat', mode='w', encoding='1251') as upd:
+    with open('update.bat', mode='w', encoding='utf-8') as upd:
         upd.write(f'''@echo off
-chcp 1251>nul
+chcp 65001>nul
 echo Update complete
 timeout /t 3 /nobreak>nul
 move /Y "{newfile}" "{file}"
@@ -86,8 +85,8 @@ class Application(tk.Tk):
     def __init__(self):
         """Create form."""
         super().__init__()
-        self.form_width = 400  # Ширина окна
-        self.form_height = 240  # Высота окна
+        self.form_width = 404  # Ширина окна
+        self.form_height = 260  # Высота окна
         self.geometry(f'{self.form_width}x{self.form_height}')
         self.attributes('-alpha', 1)  # Прозрачность формы (0..1)
         self.attributes('-topmost', False)  # Поверх всех окон
@@ -121,139 +120,68 @@ class Application(tk.Tk):
             'appdata') + r'\microsoft\windows\start menu\programs\startup'
         self.image_monitor = ImageTk.PhotoImage(
             Image.open(f'{os.path.dirname(__file__)}\\files\\monitor.ico'))
+        image_pin = Image.open(f'{os.path.dirname(__file__)}\\files\\pin.png')
         self.image_pin = ImageTk.PhotoImage(
-            Image.open(f'{os.path.dirname(__file__)}\\files\\pin.png'))
+            image_pin.resize((20, 20), Image.Resampling.LANCZOS))
+        image_unpin = Image.open(
+            f'{os.path.dirname(__file__)}\\files\\unpin.png')
+        self.image_unpin = ImageTk.PhotoImage(
+            image_unpin.resize((20, 20), Image.Resampling.LANCZOS))
+        self.monitor_count = len(win32api.EnumDisplayMonitors())
+        self.filespath = []
+        self.select_file_label = []
+        self.radio_frame = []
+        self.monitor_num_label = []
+        self.monitor_number = []
+        self.monitor_list = []
+        for i in range(8):
+            self.monitor_list.append([])
 
     def set_ui(self):
         """Create widgets."""
         self.set_ui_status()
         self.set_ui_install()
-        self.set_ui_new_files()
-        self.set_ui_new_monitor()
-        self.set_ui_new_filesbut()
-        self.set_ui_new_result()
-        self.set_ui_new_startup()
-        self.set_ui_new_exit()
-        self.set_ui_new_openfolder()
-        self.set_ui_new_clear()
-
-    def set_ui_file(self):
-        """Select file Button+Label."""
-        # self.select_file_frame = ttk.Frame(self)
-        # self.select_file_frame.pack(fill=tk.X)
-        # self.select_file_button = ttk.Button(self.select_file_frame,
-        #                                      text='Select file',
-        #                                      command=self.app_selectfile)
-        # self.select_file_button.pack(side=tk.LEFT)
-        self.select_file_label = ttk.Label(self.select_file_frame,
-                                           text='File location')
-        self.select_file_label.pack(side=tk.LEFT)
-        if self.status_label['text'] == 'MPC is not installed':
-            self.select_file_button['state'] = 'disabled'
-        Hovertip(self.select_file_button, 'Выбрать видео файл или картинку',
-                 hover_delay=100)
-
-    def set_ui_monitor(self):
-        """Select monitor Button+Label."""
-        self.select_monitor_frame = ttk.Frame(self)
-        self.select_monitor_frame.pack(fill=tk.X)
-        self.select_monitor_label = ttk.Label(
-            self.select_monitor_frame,
-            text='Select monitor number (max 8):')
-        self.select_monitor_label.pack(side=tk.LEFT)
-        self.select_monitor_entry = ttk.Entry(self.select_monitor_frame,)
-        self.select_monitor_entry.pack(side=tk.LEFT)
-        self.select_monitor_entry.insert(0, '1')
-        Hovertip(self.select_monitor_label,
-                 'Введите номер монитора\nили список мониторов через запятую, \
-                     пробел,\nзапятую и пробел, тире',
-                 hover_delay=100)
-
-    def set_ui_result(self):
-        """Check result Button."""
-        self.result_frame = ttk.Frame(self)
-        self.result_frame.pack(fill=tk.X)
-        self.check_button = ttk.Button(self.result_frame,
-                                       text='      Check result        ',
-                                       command=self.app_check)
-        self.check_button.pack(side=tk.LEFT)
-        self.check_button['state'] = 'disabled'
-        self.startup_folder_button = ttk.Button(
-            self.result_frame,
-            text=' Open startup folder  ',
-            command=self.app_startup_folder)
-        self.startup_folder_button.pack(side=tk.RIGHT)
-        Hovertip(self.check_button, 'Вывести на экран', hover_delay=100)
-        Hovertip(self.startup_folder_button, 'Открыть папку автозагрузки',
-                 hover_delay=100)
-
-    def set_ui_shortcut(self):
-        """Make shortcut on desktop Button."""
-        self.shortcut_frame = ttk.Frame(self)
-        self.shortcut_frame.pack(fill=tk.X)
-        self.on_desktop_button = ttk.Button(
-            self.shortcut_frame, text='  Make shortcut on desktop  ',
-            command=self.app_desktop)
-        self.on_desktop_button.pack(side=tk.LEFT)
-        self.on_desktop_button['state'] = 'disabled'
-        self.clear_button = ttk.Button(self.shortcut_frame, text='Clear',
-                                       command=self.app_clear)
-        self.clear_button.pack(side=tk.RIGHT)
-        Hovertip(self.on_desktop_button, 'Создать ярлык на рабочем столе',
-                 hover_delay=100)
-        Hovertip(self.clear_button, 'Очистить ранее созданные ярлыки',
-                 hover_delay=100)
-
-    def set_ui_startup(self):
-        """Add shortcut to startup Button."""
-        self.to_startup_button = ttk.Button(
-            self, text='Add shortcut to startup',
-            command=self.app_startup)
-        self.to_startup_button.pack(fill=tk.X)
-        self.to_startup_button['state'] = 'disabled'
-        Hovertip(self.to_startup_button, 'Добавить ярлык в автозагрузку',
-                 hover_delay=100)
-
-    def set_ui_exit(self):
-        """Run and exit Button."""
-        self.exit_button = ttk.Button(self, text='Run and exit',
-                                      command=self.app_runexit)
-        self.exit_button.pack(fill=tk.X)
-        self.exit_button['state'] = 'disabled'
-        Hovertip(self.exit_button,
-                 'Запустить все ярлыки из автозагрузки и выйти',
-                 hover_delay=100)
+        self.set_ui_files()
+        self.set_ui_monitor()
+        self.set_ui_filesbut()
+        self.set_ui_result()
+        self.set_ui_startup()
+        self.set_ui_exit()
+        self.set_ui_openfolder()
+        self.set_ui_clear()
 
     def set_ui_status(self):
         """Status label+Pin+Monitor Buttons."""
         self.mpc_text = 'MPC is not installed'
         self.mpc_text_color = 'red'
-        # self.cfg_button['state'] = 'disabled'
         if self.mpc_file[2] == 'found':
             self.mpc_text = 'MPC is installed'
             self.mpc_text_color = 'green'
-            # self.cfg_button['state'] = 'enabled'
-            # self.install_button['state'] = 'disabled'
-        self.status_label = tk.Label(self, relief="groove",
+        self.status_label = tk.Label(self, relief=tk.GROOVE,
                                      text=self.mpc_text,
                                      foreground=self.mpc_text_color)
-        self.pin_button = tk.Button(self,
-                                    image=self.image_pin,
-                                    command=self.app_pin)
+        self.pin_label = tk.Label(self,
+                                  image=self.image_pin,
+                                  relief=tk.GROOVE)
+        self.pin_label.bind('<Button-1>', self.app_pin)
         self.select_monitor_label = tk.Label(self,
                                              image=self.image_monitor,
-                                             relief="groove")
-        self.pin_button.place(x=0, y=0,
-                              width=24, height=23)
+                                             relief=tk.GROOVE)
+        self.pin_label.place(x=0, y=0,
+                             width=24, height=24)
         self.status_label.place(x=24, y=0,
                                 width=self.form_width-120, height=24)
-        self.select_monitor_label.place(x=self.form_width-96, y=0,
-                                        width=96, height=24)
+        self.select_monitor_label.place(x=self.form_width-100, y=0,
+                                        width=100, height=24)
         self.mpc_tooltip = Hovertip(self.status_label,
                                     'Media Player Classic не установлен',
                                     hover_delay=100)
         if self.status_label['text'] == 'MPC is installed':
             self.mpc_tooltip.text = 'Media Player Classic установлен'
+        Hovertip(self.select_monitor_label, 'Выберите номер монитора',
+                 hover_delay=100)
+        Hovertip(self.pin_label, 'Поверх всех окон',
+                 hover_delay=100)
 
     def set_ui_install(self):
         """Install MPC+CFG Buttons."""
@@ -263,102 +191,127 @@ class Application(tk.Tk):
         self.cfg_button = tk.Button(self,
                                     text='CFG',
                                     command=self.app_mpc_cfg)
-        # self.install_button.grid(row=2, column=1)
-        # self.cfg_button.grid(row=2, column=2)
+        self.install_button.place(x=0, y=24,
+                                  width=68, height=24)
+        self.cfg_button.place(x=68, y=24,
+                              width=28, height=24)
+        self.cfg_button['state'] = 'disabled'
+        if self.mpc_file[2] == 'found':
+            self.install_button['state'] = 'disabled'
+            self.cfg_button['state'] = 'normal'
         Hovertip(self.install_button, 'Установить Media Player Classic',
                  hover_delay=100)
         Hovertip(self.cfg_button, 'Скопировать файл настроек в папку с MPC',
                  hover_delay=100)
 
-    def set_ui_new_files(self):
+    def set_ui_files(self, files_list=None):
         """Select files Label."""
-        self.select_file_label = tk.Label(self, font='Times 7 bold',
-                                          text=r'''
-C:\Users\FalcON\AppData\Local\Filefile1.avi
+        if files_list:
+            for i in range(len(files_list)):
+                self.select_file_label.append(tk.Label(self, anchor='nw',
+                                                       font='Courier 8 bold'))
+                Hovertip(self.select_file_label[i], files_list[i],
+                         hover_delay=100)
+                file_text = files_list[i]
+                if len(files_list[i]) > 23:
+                    file_text = f'{files_list[i][:3]}...' \
+                                f'{files_list[i][len(files_list[i])-23:]}\n'
+                self.select_file_label[i]['text'] += '\n' + file_text.upper()
+                self.select_file_label[i].place(x=96, y=24+i*28, width=209,
+                                                height=28)
+                self.radio_frame[i].place(x=self.form_width-100, y=24+i*29,
+                                          width=100, height=29)
 
-C:\Users\FalcON\AppData\Local\Filefile1.avi
-
-C:\Users\FalcON\AppData\Local\Filefile1.avi
-
-C:\Users\FalcON\AppData\Local\Filefile1.avi
-
-C:\Users\FalcON\AppData\Local\Filefile1.avi
-
-C:\Users\FalcON\AppData\Local\Filefile1.avi
-
-C:\Users\FalcON\AppData\Local\Filefile1.avi
-
-C:\Users\FalcON\AppData\Local\Filefile1.avi'''.upper())
-        self.select_file_label.place(x=50, y=24,
-                                     relwidth=0.7, height=self.form_height-24)
-
-    def set_ui_new_monitor(self):
+    def set_ui_monitor(self):
         """Select monitor entrys."""
-        self.monitor_number = tk.IntVar()
-        self.monitor_number.set(0)
-        self.monitor_one = tk.Radiobutton(text='1',
-                                          variable=self.monitor_number,
-                                          value=0)
-        self.monitor_two = tk.Radiobutton(text='2',
-                                          variable=self.monitor_number,
-                                          value=1)
-        self.monitor_three = tk.Radiobutton(text='3',
-                                          variable=self.monitor_number,
-                                          value=2)
-        self.monitor_four = tk.Radiobutton(text='4',
-                                          variable=self.monitor_number,
-                                          value=3)
-        self.monitor_five = tk.Radiobutton(text='5',
-                                          variable=self.monitor_number,
-                                          value=4)
-        self.monitor_six = tk.Radiobutton(text='6',
-                                          variable=self.monitor_number,
-                                          value=5)
-        self.monitor_seven = tk.Radiobutton(text='7',
-                                          variable=self.monitor_number,
-                                          value=6)
-        self.monitor_eight = tk.Radiobutton(text='8',
-                                          variable=self.monitor_number,
-                                          value=7)
-        self.monitor_one.place(x=self.form_width-self.form_width*0.3, y=24)
-        self.monitor_two.place(x=self.form_width-self.form_width*0.3, y=48)
-        self.monitor_three.place(x=self.form_width-self.form_width*0.3, y=72)
-        self.monitor_four.place(x=self.form_width-self.form_width*0.3, y=96)
-        self.monitor_five.place(x=self.form_width-self.form_width*0.3, y=120)
-        self.monitor_six.place(x=self.form_width-self.form_width*0.3, y=144)
-        self.monitor_seven.place(x=self.form_width-self.form_width*0.3, y=168)
-        self.monitor_eight.place(x=self.form_width-self.form_width*0.3, y=192)
+        for i in range(8):
+            self.radio_frame.append(tk.Frame(self))
+            self.monitor_num_label.append(
+                tk.Label(self.radio_frame[i], text=' 1  2  3  4  5  6  7  8',
+                         bd=1, anchor='n'))
+            self.monitor_num_label[i].place(x=0, y=0,
+                                            width=100, height=14)
+            self.monitor_number.append(tk.IntVar())
+            self.monitor_number[i].set(0)
+            for j in range(8):
+                self.monitor_list[i].append(
+                    tk.Radiobutton(self.radio_frame[i],
+                                   variable=self.monitor_number[i],
+                                   value=j, borderwidth=0))
+                self.monitor_list[i][j].place(x=12*j, y=14)
+                if j + 1 > self.monitor_count:
+                    self.monitor_list[i][j]['state'] = 'disabled'
 
-    def set_ui_new_filesbut(self):
+    def set_ui_filesbut(self):
         """Select files Button."""
         self.select_file_button = tk.Button(self,
                                             text='Select file',
                                             command=self.app_selectfile)
-        self.select_file_button.place(x=50, y=50, width=50, height=50)
+        self.select_file_button.place(x=0, y=24*2, width=96, height=36)
+        self.select_file_button['state'] = 'disabled'
+        if self.mpc_file[2] == 'found':
+            self.select_file_button['state'] = 'normal'
+        Hovertip(self.select_file_button, 'Выбрать видео файл или картинку',
+                 hover_delay=100)
 
-    def set_ui_new_result(self):
+    def set_ui_result(self):
         """Check result Button."""
-        pass
+        self.check_button = tk.Button(self, text='Check result',
+                                      command=self.app_check)
+        self.check_button.place(x=0, y=24*2+36, width=96, height=32)
+        self.check_button['state'] = 'disabled'
+        Hovertip(self.check_button, 'Вывести на экран', hover_delay=100)
 
-    def set_ui_new_startup(self):
-        """Install MPC Button."""
-        pass
+    def set_ui_startup(self):
+        """Add shortcut to startup Button."""
+        self.to_startup_button = tk.Button(
+            self, text='Add shortcut\nto startup',
+            command=self.app_startup)
+        self.to_startup_button.place(x=0, y=24*2+36+32, width=96, height=36)
+        self.to_startup_button['state'] = 'disabled'
+        Hovertip(self.to_startup_button, 'Добавить ярлык в автозагрузку',
+                 hover_delay=100)
 
-    def set_ui_new_exit(self):
-        """Install MPC Button."""
-        pass
+    def set_ui_exit(self):
+        """Run and exit Button."""
+        self.exit_button = tk.Button(self, text='Run and exit',
+                                     command=self.app_runexit)
+        self.exit_button.place(x=0, y=self.form_height-36*3,
+                               width=96, height=36)
+        self.exit_button['state'] = 'disabled'
+        Hovertip(self.exit_button,
+                 'Запустить все ярлыки из автозагрузки и выйти',
+                 hover_delay=100)
 
-    def set_ui_new_openfolder(self):
-        """Install MPC Button."""
-        pass
+    def set_ui_openfolder(self):
+        """Open startup folder."""
+        self.startup_folder_button = tk.Button(self,
+                                               text='Open startup\nfolder',
+                                               command=self.app_startup_folder)
+        self.startup_folder_button.place(x=0, y=self.form_height-36*2,
+                                         width=96, height=36)
+        Hovertip(self.startup_folder_button, 'Открыть папку автозагрузки',
+                 hover_delay=100)
 
-    def set_ui_new_clear(self):
-        """Install MPC Button."""
-        pass
+    def set_ui_clear(self):
+        """Clear old shortcuts from startup."""
+        self.clear_button = tk.Button(self,
+                                      text='Clear old\nshortcuts',
+                                      command=self.app_clear)
+        self.clear_button.place(x=0, y=self.form_height-36,
+                                width=96, height=36)
+        Hovertip(self.clear_button, 'Очистить ранее созданные ярлыки',
+                 hover_delay=100)
 
-    def app_pin(self):
+    def app_pin(self, event):
         """PIN/UNPIN form."""
-        pass
+        current_top_most = self.attributes('-topmost')
+        if current_top_most == 0:
+            self.attributes('-topmost', True)
+            self.pin_label.config(image=self.image_unpin)
+        elif current_top_most == 1:
+            self.attributes('-topmost', False)
+            self.pin_label.config(image=self.image_pin)
 
     def find_mpc_installer(self, addr=None):
         """Find MPC installer."""
@@ -413,9 +366,9 @@ C:\Users\FalcON\AppData\Local\Filefile1.avi'''.upper())
                     askopenfilename(filetypes=[
                         ("Applications", ".exe"), ("All types", ".*")]))
         self.status_label['text'] = 'Waiting...'
-        with open('silentmpc.bat', mode='w', encoding='1251') as silent:
+        with open('silentmpc.bat', mode='w', encoding='utf-8') as silent:
             silent.write(f'''@echo off
-chcp 1251>nul
+chcp 65001>nul
 "{self.mpc_installer}" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-
 del silentmpc.bat 2>nul''')
         installation = subprocess.Popen('silentmpc.bat')
@@ -441,7 +394,7 @@ del silentmpc.bat 2>nul''')
         self.status_label['foreground'] = 'green'
         self.status_label['text'] = 'MPC is installed'
         self.mpc_tooltip.text = 'Media Player Classic установлен'
-        self.cfg_button['state'] = 'enabled'
+        self.cfg_button['state'] = 'normal'
         self.install_button['state'] = 'disabled'
 
     def create_mpc_cfg(self):
@@ -455,9 +408,9 @@ del silentmpc.bat 2>nul''')
         """Copy MPC CFG."""
         cfgfile = self.create_mpc_cfg()
         with open(f'{cfgfile[:-10]}cfg_copy.bat', 'w',
-                  encoding='1251') as cfgcopy:
+                  encoding='utf-8') as cfgcopy:
             cfgcopy.write(f'''@echo off
-chcp 1251>nul
+chcp 65001>nul
 move "{cfgfile}" "{self.mpc_file[1][:-10]}{cfgfile[-10:]}"
 del {cfgfile[:-10]}cfg_copy.bat 2>nul''')
         os.startfile(f'{cfgfile[:-10]}cfg_copy.bat', "runas")
@@ -469,19 +422,26 @@ del {cfgfile[:-10]}cfg_copy.bat 2>nul''')
             tk.messagebox.showwarning(title=asktitle, message=askmessage)
             os.startfile(self.mpc_file[1][:-10])
         self.cfg_button['state'] = 'disabled'
-        self.select_file_button['state'] = 'enabled'
+        self.select_file_button['state'] = 'normal'
 
     def app_selectfile(self):
         """Select file."""
+        filespath_old = []
+        if len(self.filespath) != 0:
+            del filespath_old[:]
+            filespath_old = self.filespath[:]
         self.filespath = askopenfilenames()
-        if self.filespath[0] != '':
-            self.select_file_label['text'] = self.filespath[0][
-                len(self.filespath[0])-27:]
-            Hovertip(self.select_file_label, '\n'.join(self.filespath),
-                     hover_delay=100)
-            self.check_button['state'] = 'enabled'
-            self.on_desktop_button['state'] = 'enabled'
-            self.to_startup_button['state'] = 'enabled'
+        if len(self.filespath) != 0:
+            for i in range(len(filespath_old)):
+                self.select_file_label[i].place_forget()
+                self.radio_frame[i].place_forget()
+            del self.select_file_label[:]
+            self.set_ui_files(self.filespath)
+            self.check_button['state'] = 'normal'
+            self.to_startup_button['state'] = 'normal'
+        elif len(self.filespath) == 0:
+            del self.filespath[:]
+            self.filespath = filespath_old[:]
 
     def app_startup_folder(self):
         """Open startup folder."""
@@ -493,52 +453,53 @@ del {cfgfile[:-10]}cfg_copy.bat 2>nul''')
         msg = tk.messagebox.askyesno(title='Delete all shortcuts',
                                      message=mess)
         if msg:
-            dirname = os.getenv('appdata') + \
-                r'\microsoft\windows\start menu\programs\startup'
-            for file in os.listdir(dirname):
+            for file in os.listdir(self.startup_folder):
                 if len(file) == 12 and file[:-4].isdigit():
-                    os.remove(os.path.join(dirname, file))
+                    os.remove(os.path.join(self.startup_folder, file))
 
-    def run_command(self):
+    def run_command(self, i, value):
         """Run command."""
-        monitor_num = self.select_monitor_entry.get()
-        if monitor_num not in list(map(lambda x: str(x), range(1, 9))):
-            monitor_num = '1'
-        return f'"{self.mpc_file[1]}" "{self.filespath[0]}" ' \
+        monitor_num = self.monitor_number[i].get() + 1
+        return f'"{self.mpc_file[1]}" "{value}" ' \
                f'/new /play /fullscreen /monitor {monitor_num}'
 
     def app_check(self):
         """Check result."""
-        subprocess.Popen(self.run_command())
+        for i, value in enumerate(self.filespath):
+            subprocess.Popen(self.run_command(i, value))
 
-    def app_desktop(self):
+    def app_desktop(self, i, value):
         """Make shortcut on desktop."""
-        self.exit_button['state'] = 'enabled'
         shortcut_name = str(round(time.time()*100000))[7:]
         desktop = winshell.desktop()
         path = os.path.join(desktop, f"{shortcut_name}.lnk")
         target = f"{self.mpc_file[1]} "
-        wDir = f"{self.mpc_file[1][:-10]}"
+        wDir = f"{os.path.dirname(self.mpc_file[1])}"
         icon = f"{self.mpc_file[1]}"
         shell = Dispatch('WScript.Shell')
         shortcut = shell.CreateShortCut(path)
         shortcut.Targetpath = target
-        shortcut.Arguments = self.run_command()[-36-len(self.filespath[0]):]
+        shortcut.Arguments = self.run_command(i, value)[-36-len(value):]
         shortcut.WorkingDirectory = wDir
         shortcut.IconLocation = icon
         shortcut.save()
+        self.exit_button['state'] = 'normal'
         return path
 
     def app_startup(self):
         """Add shortcut to startup."""
-        file = self.app_desktop()
-        with open(f'{file[:-12]}file_move.bat', 'w',
-                  encoding='1251') as filemove:
-            filemove.write(f'''@echo off
-chcp 1251>nul
-move "{file}" "{self.startup_folder}\\{file[-12:]}">nul 2>nul
-del {file[:-12]}file_move.bat 2>nul''')
-        os.startfile(f'{file[:-12]}file_move.bat')
+        with open(f'{winshell.desktop()}\\file_move.bat', 'w',
+                  encoding='utf-8') as filemove:
+            filemove.write('''@echo off
+chcp 65001>nul''')
+            for i, value in enumerate(self.filespath):
+                file = self.app_desktop(i, value)
+                file_name = file.split('\\')[-1]
+                filemove.write(f'''
+move "{file}" "{self.startup_folder}\\{file_name}">nul 2>nul''')
+            filemove.write(f'''
+del {os.path.dirname(file)}\\file_move.bat 2>nul''')
+        os.startfile(f'{os.path.dirname(file)}\\file_move.bat')
 
     def app_runexit(self):
         """Run and Exit."""
@@ -552,6 +513,9 @@ del {file[:-12]}file_move.bat 2>nul''')
 def main():
     """Basic_function."""
     root = Application()
+    root.iconify()
+    root.update()
+    root.deiconify()
     root.mainloop()
 
 
@@ -563,7 +527,6 @@ if __name__ == '__main__':
     elif len(sys.argv) == 2 and '-upd' in sys.argv:
         get_update(check_update())
     elif len(sys.argv) == 2 and '-test' in sys.argv:
-        print(win32api.EnumDisplayMonitors())
-        print(len(win32api.EnumDisplayMonitors()))
+        print(winshell.desktop())
     elif len(sys.argv) < 2:
         main()
