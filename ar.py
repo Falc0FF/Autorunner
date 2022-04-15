@@ -134,8 +134,11 @@ class Application(tk.Tk):
         self.monitor_num_label = []
         self.monitor_number = []
         self.monitor_list = []
+        self.run_commands_list = []
+        self.files_in_monitor = {}
         for i in range(8):
             self.monitor_list.append([])
+            self.files_in_monitor[i+1] = []
 
     def set_ui(self):
         """Create widgets."""
@@ -457,18 +460,32 @@ del {cfgfile[:-10]}cfg_copy.bat 2>nul''')
                 if len(file) == 12 and file[:-4].isdigit():
                     os.remove(os.path.join(self.startup_folder, file))
 
-    def run_command(self, i, value):
+    def run_command(self):
         """Run command."""
-        monitor_num = self.monitor_number[i].get() + 1
-        return f'"{self.mpc_file[1]}" "{value}" ' \
-               f'/new /play /fullscreen /monitor {monitor_num}'
+        # Очищаем словарь монитор-файлы
+        for i in self.files_in_monitor.values():
+            del i[:]
+        # Заполняем словарь монитор-файлы
+        for i in range(len(self.select_file_label)):
+            monitor_num = self.monitor_number[i].get() + 1
+            self.files_in_monitor[monitor_num].append(
+                f'"{self.filespath[i]}"')
+        del self.run_commands_list[:]
+        for monitor, file in self.files_in_monitor.items():
+            if file:
+                files_param = ' '.join(file)
+                self.run_commands_list.append(
+                    f'"{self.mpc_file[1]}" {files_param} '
+                    f'/new /play /fullscreen /monitor {monitor}'
+                )
+        return self.run_commands_list
 
     def app_check(self):
         """Check result."""
-        for i, value in enumerate(self.filespath):
-            subprocess.Popen(self.run_command(i, value))
+        for command in self.run_command():
+            subprocess.Popen(command)
 
-    def app_desktop(self, i, value):
+    def app_desktop(self, cmd):
         """Make shortcut on desktop."""
         shortcut_name = str(round(time.time()*100000))[7:]
         desktop = winshell.desktop()
@@ -479,7 +496,7 @@ del {cfgfile[:-10]}cfg_copy.bat 2>nul''')
         shell = Dispatch('WScript.Shell')
         shortcut = shell.CreateShortCut(path)
         shortcut.Targetpath = target
-        shortcut.Arguments = self.run_command(i, value)[-36-len(value):]
+        shortcut.Arguments = cmd.split('.exe" ')[-1]
         shortcut.WorkingDirectory = wDir
         shortcut.IconLocation = icon
         shortcut.save()
@@ -492,14 +509,14 @@ del {cfgfile[:-10]}cfg_copy.bat 2>nul''')
                   encoding='utf-8') as filemove:
             filemove.write('''@echo off
 chcp 65001>nul''')
-            for i, value in enumerate(self.filespath):
-                file = self.app_desktop(i, value)
-                file_name = file.split('\\')[-1]
+            for command in self.run_command():
+                shortcutfile = self.app_desktop(command)
+                file_name = shortcutfile.split('\\')[-1]
                 filemove.write(f'''
-move "{file}" "{self.startup_folder}\\{file_name}">nul 2>nul''')
+move "{shortcutfile}" "{self.startup_folder}\\{file_name}">nul 2>nul''')
             filemove.write(f'''
-del {os.path.dirname(file)}\\file_move.bat 2>nul''')
-        os.startfile(f'{os.path.dirname(file)}\\file_move.bat')
+del {os.path.dirname(shortcutfile)}\\file_move.bat 2>nul''')
+        os.startfile(f'{os.path.dirname(shortcutfile)}\\file_move.bat')
 
     def app_runexit(self):
         """Run and Exit."""
